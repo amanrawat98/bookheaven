@@ -1,6 +1,6 @@
 import express from "express";
 import { User } from "../models/user.js";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { authenticateToken } from "./userAuth.js";
 
@@ -58,7 +58,7 @@ router.post("/sign-in", async (req, res) => {
     console.log(userExist);
     if (!userExist) return res.status(400).json({ message: "User Dont Exist" });
 
-    const isMatch = await bcrypt.compare(password, userExist.password);
+    const isMatch =  bcrypt.compare(password, userExist.password);
     if (isMatch) {
       const authClaims = {
         username: userExist.username,
