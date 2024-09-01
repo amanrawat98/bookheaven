@@ -4,17 +4,22 @@ import { authenticateToken } from "./userAuth.js";
 import { Books } from "../models/book.js";
 import { Order } from "../models/order.js";
 import Stripe from "stripe";
+import  {config} from 'dotenv';
+import dotenv from 'dotenv';
+
 
 const router = express.Router();
-const stripe = new Stripe(
-  "sk_test_51Pu7rMP8NeAGBdCVSMVk58m5oFqLznpoNOnpeJwOgvu3ryMCxOHUe0x7HyowgFyg8btPgepFf6bqToN0hXqqoqnE00C6zpSqBX"
-);
 
-router.post("/make-payment",authenticateToken, async(req,res)=> {
+config({path:'./config/config.env'});
+
+dotenv.config();
+const stripe = new Stripe(
+  `${process.env.STRIPE_SK_KEY}`);
+router.post("/make-payment", authenticateToken, async (req, res) => {
   try {
     const { id } = req.headers;
     const cartOrders = req.body;
-
+    console.log("cartOrders", cartOrders);
 
     if (!id || !cartOrders || cartOrders.length === 0) {
       return res
@@ -22,7 +27,6 @@ router.post("/make-payment",authenticateToken, async(req,res)=> {
         .json({ message: "Bad request: Missing required fields" });
     }
 
-  
     const lineItems = cartOrders.map((product) => ({
       price_data: {
         currency: "inr",
@@ -34,29 +38,23 @@ router.post("/make-payment",authenticateToken, async(req,res)=> {
       quantity: 1,
     }));
 
-    console.log("lineItems", lineItems);
-
-
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: lineItems,
       mode: "payment",
-      success_url: `${process.env.APP_URL}/api/v1/payment-success?session_id={CHECKOUT_SESSION_ID}&user_id=${id}`,
-      cancel_url: `${process.env.APP_URL}/api/v1/profile`,
-      
+      success_url: `${process.env.REACT_APP_API_BASE_URL}/api/v1/payment-success?session_id={CHECKOUT_SESSION_ID}&user_id=${id}`,
+      cancel_url: `${process.env.REACT_APP_API_BASE_URL}/`,
     });
 
-    console.log("session ", session)
-    res.status(200).send({id: session.id, message:"Payment Done"});
-
-  } catch(error) {
+    console.log("session ", session);
+    res.status(200).send({ id: session.id, message: "Payment Done" });
+  } catch (error) {
     console.error("Error placing order:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
+});
 
-})
-
-router.put("/payment-success", authenticateToken, async (req, res) => {
+router.get("/payment-success", async (req, res) => {
   try {
     const { session_id, user_id } = req.query;
 
@@ -64,14 +62,12 @@ router.put("/payment-success", authenticateToken, async (req, res) => {
       return res.status(400).json({ message: "Missing session ID or user ID" });
     }
 
-    // Retrieve session details from Stripe
     const session = await stripe.checkout.sessions.retrieve(session_id);
 
     if (!session) {
       return res.status(404).json({ message: "Session not found" });
     }
 
-    // Retrieve the user's cart orders from the database
     const user = await User.findById(user_id).populate("carts");
     const cartOrders = user.carts;
 
@@ -81,7 +77,6 @@ router.put("/payment-success", authenticateToken, async (req, res) => {
         .json({ message: "Bad request: No items in cart to place order" });
     }
 
-    // Move items from cart to orders
     for (const orderData of cartOrders) {
       const newOrder = new Order({ user: user_id, book: orderData._id });
       const orderDataFromDb = await newOrder.save();
@@ -97,17 +92,12 @@ router.put("/payment-success", authenticateToken, async (req, res) => {
       console.log("Order details updated for user:", user_id);
     }
 
-    return res.json({
-      status: "Success",
-      message: "Order Placed Successfully",
-      id: session_id,
-    });
+    res.redirect(process.env.REACT_APP_API_BASE_URL);
   } catch (error) {
     console.error("Error in payment-success route:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 });
-
 
 //get specific user order history
 
