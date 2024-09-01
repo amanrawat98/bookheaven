@@ -24,6 +24,7 @@ router.put("/place-order", authenticateToken, async (req, res) => {
         .json({ message: "Bad request: Missing required fields" });
     }
 
+  
     const lineItems = cartOrders.map((product) => ({
       price_data: {
         currency: "inr",
@@ -39,9 +40,11 @@ router.put("/place-order", authenticateToken, async (req, res) => {
       payment_method_types: ["card"],
       line_items: lineItems,
       mode: "payment",
-      success_url: "http://localhost:5173/success",
-      cancel_url: "http://localhost:5173/cancel",
+      success_url: "http://localhost:5173/api/v1/profile/orderHistory",
+      cancel_url: "http://localhost:5173/api/v1/profile/orderHistory",
     });
+
+    console.log("session ", session)
 
     for (const orderdata of cartOrders) {
       const newOrder = new Order({ user: id, book: orderdata._id });
