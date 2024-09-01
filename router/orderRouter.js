@@ -18,11 +18,12 @@ router.put("/place-order", authenticateToken, async (req, res) => {
     console.log("id", id);
     console.log("cartOrders", cartOrders);
 
-    if (!id || !cartOrders) {
+    if (!id || !cartOrders || cartOrders.length === 0) {
       return res
         .status(400)
         .json({ message: "Bad request: Missing required fields" });
     }
+
     const lineItems = cartOrders.map((product) => ({
       price_data: {
         currency: "inr",
@@ -34,8 +35,8 @@ router.put("/place-order", authenticateToken, async (req, res) => {
       quantity: 1,
     }));
 
-    const session = await stripe.checkout.session.create({
-      payment_methods_types: ["card"],
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
       line_items: lineItems,
       mode: "payment",
       success_url: "http://localhost:5173/success",
@@ -50,11 +51,11 @@ router.put("/place-order", authenticateToken, async (req, res) => {
         $push: { orders: orderdataFromDb._id },
       });
 
-      const cartDetails = await User.findByIdAndUpdate(id, {
+      await User.findByIdAndUpdate(id, {
         $pull: { carts: orderdataFromDb.book },
       });
 
-      console.log("deatails are", cartDetails);
+      console.log("Order details updated for user:", id);
     }
 
     return res.json({
@@ -63,6 +64,7 @@ router.put("/place-order", authenticateToken, async (req, res) => {
       id: session.id,
     });
   } catch (error) {
+    console.error("Error placing order:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 });
