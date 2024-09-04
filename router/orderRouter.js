@@ -4,17 +4,17 @@ import { authenticateToken } from "./userAuth.js";
 import { Books } from "../models/book.js";
 import { Order } from "../models/order.js";
 import Stripe from "stripe";
-import  {config} from 'dotenv';
-import dotenv from 'dotenv';
-
+import { config } from "dotenv";
+import dotenv from "dotenv";
 
 const router = express.Router();
 
-config({path:'./config/config.env'});
+config({ path: "./config/config.env" });
 
 dotenv.config();
-const stripe = new Stripe(
-  `${process.env.STRIPE_SK_KEY}`);
+
+const stripe = new Stripe(`${process.env.STRIPE_SK_KEY}`);
+
 router.post("/make-payment", authenticateToken, async (req, res) => {
   try {
     const { id } = req.headers;
@@ -42,8 +42,8 @@ router.post("/make-payment", authenticateToken, async (req, res) => {
       payment_method_types: ["card"],
       line_items: lineItems,
       mode: "payment",
-      success_url: `${process.env.REACT_APP_API_BASE_URL}/api/v1/payment-success?session_id={CHECKOUT_SESSION_ID}&user_id=${id}`,
-      cancel_url: `${process.env.REACT_APP_API_BASE_URL}/`,
+      success_url: `${process.env.REACT_APP_API_BASE_URL}/payment-success`,
+      cancel_url: `${process.env.REACT_APP_API_BASE_URL}`,
     });
 
     console.log("session ", session);
@@ -54,21 +54,11 @@ router.post("/make-payment", authenticateToken, async (req, res) => {
   }
 });
 
-router.get("/payment-success", async (req, res) => {
+router.post("/payment-success", authenticateToken, async (req, res) => {
   try {
-    const { session_id, user_id } = req.query;
+    const { id } = req.headers;
 
-    if (!session_id || !user_id) {
-      return res.status(400).json({ message: "Missing session ID or user ID" });
-    }
-
-    const session = await stripe.checkout.sessions.retrieve(session_id);
-
-    if (!session) {
-      return res.status(404).json({ message: "Session not found" });
-    }
-
-    const user = await User.findById(user_id).populate("carts");
+    const user = await User.findById(id).populate("carts");
     const cartOrders = user.carts;
 
     if (!cartOrders || cartOrders.length === 0) {
@@ -78,21 +68,18 @@ router.get("/payment-success", async (req, res) => {
     }
 
     for (const orderData of cartOrders) {
-      const newOrder = new Order({ user: user_id, book: orderData._id });
+      const newOrder = new Order({ user: id, book: orderData._id });
       const orderDataFromDb = await newOrder.save();
 
-      await User.findByIdAndUpdate(user_id, {
+      await User.findByIdAndUpdate(id, {
         $push: { orders: orderDataFromDb._id },
       });
 
-      await User.findByIdAndUpdate(user_id, {
+      await User.findByIdAndUpdate(id, {
         $pull: { carts: orderDataFromDb.book },
       });
 
-      console.log("Order details updated for user:", user_id);
     }
-
-    res.redirect(process.env.REACT_APP_API_BASE_URL);
   } catch (error) {
     console.error("Error in payment-success route:", error);
     return res.status(500).json({ message: "Internal server error" });
