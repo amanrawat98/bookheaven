@@ -52,6 +52,7 @@ router.post("/add-book", upload.single("file"), async (req, res) => {
       price: req.body.price,
       desc: req.body.desc,
       language: req.body.language,
+      quantity: req.body.quantity
     });
 
     await book.save();
@@ -114,6 +115,8 @@ router.get("/get-all-books", async (req, res) => {
 router.get("/get-book-by-id/:id", async (req, res) => {
   const { id } = req.params;
 
+
+  console.log("book id is", id);
   try {
     const book = await Books.findById(id);
 
