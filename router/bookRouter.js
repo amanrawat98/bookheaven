@@ -30,34 +30,35 @@ const isImage = (req, file, callback) => {
 router.post("/add-book", upload.single("file"), async (req, res) => {
   console.log("add book done");
 
-  const { filename } = req.file;
-
-  console.log(filename, "filrname");
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
     console.log("Uploading file...");
-    console.log("Body is", req.body); // Log the rest of the form dat
+    console.log("Body is", req.body); // Log the rest of the form data
+
     const { id } = req.headers;
     const user = await User.findById(id);
     if (user.role !== "admin") {
-      return res.status(400).json({ message: "You are not a Admin" });
+      return res.status(400).json({ message: "You are not an Admin" });
     }
 
+    // Uploading to Cloudinary
+    const cloudinaryResponse = await cloudinary.uploader.upload(req.file.path);
+
     const book = new Books({
-      url: filename,
+      url: cloudinaryResponse.secureUrl,
       title: req.body.title,
       author: req.body.author,
       price: req.body.price,
       desc: req.body.desc,
       language: req.body.language,
-      quantity: req.body.quantity
+      quantity: req.body.quantity,
     });
 
     await book.save();
 
-    res.status(200).json({ message: "Book added successfull" });
+    res.status(200).json({ message: "Book added successfully" });
   } catch (error) {
     res.status(500).json({ message: "Internal server error", error });
   }
@@ -114,7 +115,6 @@ router.get("/get-all-books", async (req, res) => {
 
 router.get("/get-book-by-id/:id", async (req, res) => {
   const { id } = req.params;
-
 
   console.log("book id is", id);
   try {
