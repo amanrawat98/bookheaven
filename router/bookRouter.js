@@ -47,7 +47,7 @@ router.post("/add-book", upload.single("file"), async (req, res) => {
     const cloudinaryResponse = await cloudinary.uploader.upload(req.file.path);
 
     const book = new Books({
-      url: cloudinaryResponse.secureUrl,
+      url: cloudinaryResponse.secure_url,
       title: req.body.title,
       author: req.body.author,
       price: req.body.price,
