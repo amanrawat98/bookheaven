@@ -5,6 +5,7 @@ import { authenticateToken } from "./userAuth.js";
 import multer from "multer";
 
 import { Books } from "../models/book.js";
+import cloudinary from "../index.js";
 
 const router = express.Router();
 
