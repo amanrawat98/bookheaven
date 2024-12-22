@@ -34,9 +34,17 @@ router.post("/add-book", upload.single("file"), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
+
     console.log("Uploading file...");
     console.log("Body is", req.body); // Log the rest of the form data
 
+    // Validate required fields
+    const { title, author, price, desc, language, quantity } = req.body;
+    if (!title || !author || !price || !desc || !language || !quantity) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // Get user from headers
     const { id } = req.headers;
     const user = await User.findById(id);
     if (user.role !== "admin") {
@@ -44,25 +52,30 @@ router.post("/add-book", upload.single("file"), async (req, res) => {
     }
 
     // Uploading to Cloudinary
-    const cloudinaryResponse = await cloudinary.uploader.upload(req.file.path);
+    const cloudinaryResponse = await cloudinary.uploader.upload(req.file.path).catch(err => {
+      console.error("Cloudinary upload error:", err);
+      throw new Error("Cloudinary upload failed");
+    });
 
     const book = new Books({
       url: cloudinaryResponse.secure_url,
-      title: req.body.title,
-      author: req.body.author,
-      price: req.body.price,
-      desc: req.body.desc,
-      language: req.body.language,
-      quantity: req.body.quantity,
+      title,
+      author,
+      price,
+      desc,
+      language,
+      quantity,
     });
 
     await book.save();
 
     res.status(200).json({ message: "Book added successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error", error });
+    console.error(error); // Log the error for debugging
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 });
+
 
 //update book
 
