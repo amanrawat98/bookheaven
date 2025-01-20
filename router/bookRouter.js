@@ -5,6 +5,7 @@ import { authenticateToken } from "./userAuth.js";
 import multer from "multer";
 
 import { Books } from "../models/book.js";
+import cloudinary from "../index.js";
 
 const router = express.Router();
 
@@ -30,38 +31,52 @@ const isImage = (req, file, callback) => {
 router.post("/add-book", upload.single("file"), async (req, res) => {
   console.log("add book done");
 
-  const { filename } = req.file;
-
-  console.log(filename, "filrname");
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
+
     console.log("Uploading file...");
-    console.log("Body is", req.body); // Log the rest of the form dat
+    console.log("Body is", req.body); // Log the rest of the form data
+
+    // Validate required fields
+    const { title, author, price, desc, language, quantity } = req.body;
+    if (!title || !author || !price || !desc || !language || !quantity) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // Get user from headers
     const { id } = req.headers;
     const user = await User.findById(id);
     if (user.role !== "admin") {
-      return res.status(400).json({ message: "You are not a Admin" });
+      return res.status(400).json({ message: "You are not an Admin" });
     }
 
+    // Uploading to Cloudinary
+    const cloudinaryResponse = await cloudinary.uploader.upload(req.file.path).catch(err => {
+      console.error("Cloudinary upload error:", err);
+      throw new Error("Cloudinary upload failed");
+    });
+
     const book = new Books({
-      url: filename,
-      title: req.body.title,
-      author: req.body.author,
-      price: req.body.price,
-      desc: req.body.desc,
-      language: req.body.language,
-      quantity: req.body.quantity
+      url: cloudinaryResponse.secure_url,
+      title,
+      author,
+      price,
+      desc,
+      language,
+      quantity,
     });
 
     await book.save();
 
-    res.status(200).json({ message: "Book added successfull" });
+    res.status(200).json({ message: "Book added successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error", error });
+    console.error(error); // Log the error for debugging
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 });
+
 
 //update book
 
@@ -114,7 +129,6 @@ router.get("/get-all-books", async (req, res) => {
 
 router.get("/get-book-by-id/:id", async (req, res) => {
   const { id } = req.params;
-
 
   console.log("book id is", id);
   try {
